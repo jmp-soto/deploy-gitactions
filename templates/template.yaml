@@ -26,9 +26,6 @@ Parameters:
   pTeamName:
     Description: "team Name (all lowercase, no symbols or spaces)"
     Type: String
-  pRDAWSAccountId:
-    Description: "Account Ruta Digital (all lowercase, no symbols or spaces)"
-    Type: String
   pdeploymentDate:
     Description: "Date (all lowercase, no symbols or spaces)"
     Type: String
