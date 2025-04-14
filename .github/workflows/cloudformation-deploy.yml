@@ -15,8 +15,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     environment:
-      name: "develop"
-
+      #name: "develop"
+      name: ${{ github.ref == 'refs/heads/prod' && 'prod' || github.ref == 'refs/heads/qa' && 'staging' || github.ref == 'refs/heads/develop' && 'develop' }}
+    
     permissions:
       id-token: write
       contents: read  
@@ -145,7 +146,7 @@ jobs:
           LAMBDAS=$(yq -o=json '.' deploy_parameters/lambdas.yaml | jq -c '.lambdas')
           echo "LAMBDAS=$LAMBDAS" >> $GITHUB_ENV
 
-      - name: Zip and upload all Lambdas
+      - name: upload all Lambdas code
         run: |
           mkdir -p "$GITHUB_WORKSPACE/zip"
 
