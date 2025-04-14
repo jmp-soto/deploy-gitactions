@@ -15,13 +15,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     environment:
-      name: ${{ startsWith(github.base_ref, 'develop/') && 'develop' || startsWith(github.base_ref, 'qa/') && 'qa' || startsWith(github.base_ref, 'prod/') && 'prod' }}
+      name: ${GITHUB_BASE_REF%%/*}
 
     permissions:
       id-token: write
       contents: read  
     env:
-      ENVIRONMENT: ${{ startsWith(github.base_ref, 'develop/') && 'dev' || startsWith(github.base_ref, 'qa/') && 'qa' || startsWith(github.base_ref, 'prod/') && 'prod' }}
+      ENVIRONMENT: ${GITHUB_BASE_REF%%/*}
       REGION: "us-east-1"
 
     steps:
@@ -31,10 +31,11 @@ jobs:
 
       - name: Define environment
         run: |
-          if [[ "${{ github.base_ref }}" == "develop" ]]; then
+          base_ref_part="${GITHUB_BASE_REF%%/*}"
+          if [[ "$base_ref_part" == "develop" ]]; then
             echo "ENVIRONMENT=dev" >> $GITHUB_ENV
           else
-            echo "ENVIRONMENT=${{ github.base_ref }}" >> $GITHUB_ENV
+            echo "ENVIRONMENT=$base_ref_part" >> $GITHUB_ENV
           fi
 
       - name: Checkout repository
