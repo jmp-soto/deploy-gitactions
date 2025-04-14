@@ -6,7 +6,7 @@
       "ENVIRONMENT": "dev"
   },
   {
-      "BRANCH_NAME": "develop"
+      "BRANCH_NAME": "eta"
   },
   {
       "REPOSITORY_NAME":"da-koa-iac-ecodistribucion"

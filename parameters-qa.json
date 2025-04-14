@@ -6,7 +6,7 @@
         "ENVIRONMENT": "qa"
     },
     {
-        "BRANCH_NAME": "qa"
+        "BRANCH_NAME": "eta"
     },
     {
         "REPOSITORY_NAME":"da-koa-iac-ecodistribucion"
