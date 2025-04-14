@@ -1,0 +1,110 @@
+name: CloudFormation deploy
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - develop/*
+      - qa/*
+      - prod/*
+  push:
+    branches:
+      - develop/*
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.base_ref }}
+
+    permissions:
+      id-token: write
+      contents: read  
+    env:
+      ENVIRONMENT: ${{ github.base_ref == 'develop' && 'dev' || github.base_ref }}
+      REGION: "us-east-1"
+
+    steps:
+      - name: Set timestamp
+        run: |
+          echo "TIMESTAMP=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
+
+      - name: Define environment
+        run: |
+          if [[ "${{ github.base_ref }}" == "develop" ]]; then
+            echo "ENVIRONMENT=dev" >> $GITHUB_ENV
+          else
+            echo "ENVIRONMENT=${{ github.base_ref }}" >> $GITHUB_ENV
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set Parameters File
+        run: |
+          if [[ "${{ github.ref_name }}" == "develop" ]]; then
+            echo "PARAMETERS_FILE=./parameters-dev.json" >> $GITHUB_ENV
+          elif [[ "${{ github.ref_name }}" == "qa" ]]; then
+            echo "PARAMETERS_FILE=./parameters-qa.json" >> $GITHUB_ENV
+          elif [[ "${{ github.ref_name }}" == "prod" ]]; then
+            echo "PARAMETERS_FILE=./parameters-prod.json" >> $GITHUB_ENV
+          else
+            echo "PARAMETERS_FILE=tags.json" >> $GITHUB_ENV
+          fi
+      
+      - name: Load JSON into Environment Variables
+        run: |
+          for row in $(jq -c '.[]' $PARAMETERS_FILE); do
+            key=$(echo $row | jq -r 'keys[0]')
+            value=$(echo $row | jq -r '.[]')
+            echo "${key}=${value}" >> $GITHUB_ENV
+          done
+          echo "Loaded variables from $PARAMETERS_FILE."
+      
+      - name: Validate Variables
+        run: |
+          echo "TEAM=$TEAM"
+          echo "ENVIRONMENT=$ENVIRONMENT"
+          echo "BRANCH_NAME=$BRANCH_NAME"
+          echo "REPOSITORY_NAME=$REPOSITORY_NAME"
+          echo "ARTIFACTORY_BUCKET=$ARTIFACTORY_BUCKET"
+          echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"
+          echo "AWS_ACCOUNT_ID_OPT=$AWS_ACCOUNT_ID_OPT"
+          echo "DB_STAGE=$DB_STAGE"
+          echo "DB_ANALYTICS=$DB_ANALYTICS"
+          echo "AWS_ACCOUNT=$AWS_ACCOUNT"
+          echo "AWS_RUTADIGITAL_ID=$AWS_RUTADIGITAL_ID"
+
+      - name: Configure AWS credentials
+        id: creds
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ secrets.OIDC_ROLE }}
+          role-session-name: darolesession
+          aws-region: ${{ env.REGION }}
+
+
+      - name: Deploy IAM
+        id: iam
+        shell: bash
+        if: contains(github.event.pull_request.title, '-iam') || contains(github.event.pull_request.title, '-all')
+        env:
+          STACK_NAME: da-ecodistribucion-iam
+        run: |
+          aws cloudformation deploy --template-file templates/iam.yaml \
+            --region $REGION \
+            --stack-name $STACK_NAME \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+                pTeamName=$TEAM \
+                Stage=$ENVIRONMENT \
+                pBranchName=$BRANCH_NAME \
+                pArtifactsBucket=$ARTIFACTORY_BUCKET \
+                pAWSRegion=$REGION \
+                pAWSAccountId=$AWS_ACCOUNT_ID \
+                pAWSAccountOpt=$AWS_ACCOUNT_ID_OPT \
+                pdbStageName=$DB_STAGE \
+                pAccountName=$AWS_ACCOUNT \
+                pdeploymentDate=$TIMESTAMP
+          aws cloudformation describe-stack-events --stack-name $STACK_NAME --max-items 5
