@@ -16,22 +16,17 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ${{ 
-        startsWith(github.ref, 'refs/heads/develop/') && 'develop' || 
-        startsWith(github.ref, 'refs/heads/qa/') && 'qa' || 
-        startsWith(github.ref, 'refs/heads/prod/') && 'prod' || 
-        'default'
+        (startsWith(github.ref, 'refs/heads/develop/') && 'develop') || 
+        (startsWith(github.ref, 'refs/heads/qa/') && 'qa') || 
+        (startsWith(github.ref, 'refs/heads/prod/') && 'prod') || 
+        'default' 
       }}
 
     permissions:
       id-token: write
       contents: read  
     env:
-      ENVIRONMENT: ${{ 
-        startsWith(github.ref, 'refs/heads/develop/') && 'dev' || 
-        startsWith(github.ref, 'refs/heads/qa/') && 'qa' || 
-        startsWith(github.ref, 'refs/heads/prod/') && 'prod' || 
-        'default'
-      }}
+      ENVIRONMENT: ${{ startsWith(github.base_ref, 'develop/') && 'develop' || startsWith(github.base_ref, 'qa/') && 'qa' || startsWith(github.base_ref, 'prod/') && 'prod' }}
       REGION: "us-east-1"
 
     steps:
