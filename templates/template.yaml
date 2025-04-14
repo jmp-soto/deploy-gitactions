@@ -111,15 +111,10 @@ Resources:
                       "event": event
                   })
               }
-      Role: !GetAtt etaRole
+      Role: !GetAtt etaRole.Arn
       Handler: lambda_function.lambda_handler
       Runtime: python3.9
       Environment:
         Variables:
           ENVIRONMENT: !Ref Stage
           REGION: !Ref pAWSRegion
-  
-  
-
-  
-
