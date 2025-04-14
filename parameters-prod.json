@@ -6,7 +6,7 @@
         "ENVIRONMENT": "prod"
     },
     {
-        "BRANCH_NAME": "eta"
+        "BRANCH_NAME": "optimizador"
     },
     {
         "REPOSITORY_NAME":"da-koa-iac-ecodistribucion"

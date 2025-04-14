@@ -1,5 +1,0 @@
-lambdas:
-  - name: lambda-da-eta-ml
-    path: stage_lib/lambda/lambda-da-eta-ml/src
-  - name: lambda-da-eta-sp
-    path: stage_lib/lambda/lambda-da-eta-sp/src
