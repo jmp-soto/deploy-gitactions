@@ -57,7 +57,7 @@ jobs:
 
       - name: Set Parameters File
         run: |
-          if [[ "$ENVIRONMENT" == "develop" ]]; then
+          if [[ "$ENVIRONMENT" == "dev" ]]; then
             echo "PARAMETERS_FILE=./parameters-dev.json" >> $GITHUB_ENV
             echo "TAG_FILE=./tags_dev.json" >> $GITHUB_ENV
           elif [[ "$ENVIRONMENT" == "qa" ]]; then
