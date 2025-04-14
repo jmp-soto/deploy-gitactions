@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       #name: "develop"
-      name: ${{ github.ref == 'refs/heads/prod' && 'prod' || github.ref == 'refs/heads/qa' && 'qa' || github.ref == 'refs/heads/develop' && 'develop' || (github.ref && '') }}
+      name: ${{ github.ref.split('/')[2] }}
     
     permissions:
       id-token: write
