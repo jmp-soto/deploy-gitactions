@@ -15,13 +15,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     environment:
-      name: ${GITHUB_BASE_REF%%/*}
+      name: ${{ startsWith(github.base_ref, 'develop/') && 'develop' || startsWith(github.base_ref, 'qa/') && 'qa' || startsWith(github.base_ref, 'prod/') && 'prod' }}
 
     permissions:
       id-token: write
       contents: read  
     env:
-      ENVIRONMENT: ${GITHUB_BASE_REF%%/*}
+      ENVIRONMENT: ${{ startsWith(github.base_ref, 'develop/') && 'dev' || startsWith(github.base_ref, 'qa/') && 'qa' || startsWith(github.base_ref, 'prod/') && 'prod' }}
       REGION: "us-east-1"
 
     steps:
@@ -85,8 +85,15 @@ jobs:
           echo "TAGS=${TAGS}" >> $GITHUB_ENV
           echo "Processed tags: ${TAGS}"
       
+      #- name: Set BRANCH_NAME from ref
+      #  run: |
+      #    RAW_BRANCH="${{ github.ref_name }}"
+      #    CLEAN_BRANCH="${RAW_BRANCH#*/}" 
+      #    echo "BRANCH_NAME=$CLEAN_BRANCH" >> $GITHUB_ENV
+
       - name: Set dynamic STACK_NAME
         run: echo "STACK_NAME=da-${BRANCH_NAME}-ecodistribucion" >> $GITHUB_ENV
+
 
       - name: Configure AWS credentials
         id: creds
@@ -96,29 +103,29 @@ jobs:
           role-session-name: darolesession
           aws-region: "us-east-1"
 
+
       - name: Deploy IAM
         id: iam
         shell: bash
         if: contains(github.event.pull_request.title, '-template') || contains(github.event.pull_request.title, '-all')
         run: |
-          aws cloudformation deploy \
-            --template-file templates/template.yaml \
+          aws cloudformation deploy --template-file templates/template.yaml \
             --region $REGION \
             --stack-name $STACK_NAME \
             --capabilities CAPABILITY_NAMED_IAM \
             --no-fail-on-empty-changeset \
-            --tags $TAGS \
+            --tags $TAGS \ 
             --parameter-overrides \
-              pTeamName=$TEAM \
-              Stage=$ENVIRONMENT \
-              pBranchName=$BRANCH_NAME \
-              pArtifactsBucket=$ARTIFACTORY_BUCKET \
-              pAWSRegion=$REGION \
-              pAWSAccountId=$AWS_ACCOUNT_ID \
-              pAWSAccountOpt=$AWS_ACCOUNT_ID_OPT \
-              pdbStageName=$DB_STAGE \
-              pAccountName=$AWS_ACCOUNT \
-              pdeploymentDate=$TIMESTAMP
+                pTeamName=$TEAM \
+                Stage=$ENVIRONMENT \
+                pBranchName=$BRANCH_NAME \
+                pArtifactsBucket=$ARTIFACTORY_BUCKET \
+                pAWSRegion=$REGION \
+                pAWSAccountId=$AWS_ACCOUNT_ID \
+                pAWSAccountOpt=$AWS_ACCOUNT_ID_OPT \
+                pdbStageName=$DB_STAGE \
+                pAccountName=$AWS_ACCOUNT \
+                pdeploymentDate=$TIMESTAMP
           aws cloudformation describe-stack-events --stack-name $STACK_NAME --max-items 5
 
       - name: Load Lambdas from YAML
