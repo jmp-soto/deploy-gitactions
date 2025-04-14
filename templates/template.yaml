@@ -33,7 +33,6 @@ Parameters:
 Resources:
   etaRole:
     Type: AWS::IAM::Role
-    Condition: OnlyDev
     Properties:
       RoleName: !Sub "role-${pBranchName}"
       ManagedPolicyArns:
