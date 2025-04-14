@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       #name: "develop"
-      name: ${{ contains(github.ref, "develop/"") && "develop" || contains(github.ref, "qa/") && "qa" || contains(github.ref, "prod/") && "prod" }}
+      name: ${{ contains(github.ref, "develop/") && "develop" || contains(github.ref, "qa/") && "qa" || contains(github.ref, "prod/") && "prod" }}
     
     permissions:
       id-token: write
