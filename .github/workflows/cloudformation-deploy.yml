@@ -31,10 +31,25 @@ jobs:
 
       - name: Define environment
         run: |
-          if [[ "${{ github.base_ref }}" == "develop" ]]; then
-            echo "ENVIRONMENT=dev" >> $GITHUB_ENV
+          # Para eventos de pull_request usamos github.base_ref, para push usamos github.ref_name
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base_ref_part="${{ github.base_ref }}"
           else
-            echo "ENVIRONMENT=${{ github.base_ref }}" >> $GITHUB_ENV
+            base_ref_part="${{ github.ref_name }}"
+          fi
+          
+          # Extraemos la primera parte antes del /
+          env_name="${base_ref_part%%/*}"
+          
+          # Convertimos a minúsculas y asignamos valores específicos
+          if [[ "${env_name,,}" == "develop" ]]; then
+            echo "ENVIRONMENT=dev" >> $GITHUB_ENV
+          elif [[ "${env_name,,}" == "qa" ]]; then
+            echo "ENVIRONMENT=qa" >> $GITHUB_ENV
+          elif [[ "${env_name,,}" == "prod" ]]; then
+            echo "ENVIRONMENT=prod" >> $GITHUB_ENV
+          else
+            echo "ENVIRONMENT=${env_name,,}" >> $GITHUB_ENV
           fi
 
       - name: Checkout repository
@@ -42,13 +57,13 @@ jobs:
 
       - name: Set Parameters File
         run: |
-          if [[ "${{ github.ref_name }}" == "develop" ]]; then
+          if [[ "$ENVIRONMENT" == "develop" ]]; then
             echo "PARAMETERS_FILE=./parameters-dev.json" >> $GITHUB_ENV
             echo "TAG_FILE=./tags_dev.json" >> $GITHUB_ENV
-          elif [[ "${{ github.ref_name }}" == "qa" ]]; then
+          elif [[ "$ENVIRONMENT" == "qa" ]]; then
             echo "PARAMETERS_FILE=./parameters-qa.json" >> $GITHUB_ENV
             echo "TAG_FILE=./tags_qa.json" >> $GITHUB_ENV
-          elif [[ "${{ github.ref_name }}" == "prod" ]]; then
+          elif [[ "ENVIRONMENT" == "prod" ]]; then
             echo "PARAMETERS_FILE=./parameters-prod.json" >> $GITHUB_ENV
             echo "TAG_FILE=./tags_prod.json" >> $GITHUB_ENV
           fi
