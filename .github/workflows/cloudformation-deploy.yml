@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       #name: "develop"
-      name: ${{ github.ref.split('/')[2] }}
+      name: ${{ fromJSON(format('["{0}"]', github.ref.split('/'))[2] }}
     
     permissions:
       id-token: write
