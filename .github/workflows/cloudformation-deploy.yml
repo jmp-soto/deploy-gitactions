@@ -44,12 +44,13 @@ jobs:
         run: |
           if [[ "${{ github.ref_name }}" == "develop" ]]; then
             echo "PARAMETERS_FILE=./parameters-dev.json" >> $GITHUB_ENV
+            echo "TAG_FILE=./tags_dev.json" >> $GITHUB_ENV
           elif [[ "${{ github.ref_name }}" == "qa" ]]; then
             echo "PARAMETERS_FILE=./parameters-qa.json" >> $GITHUB_ENV
+            echo "TAG_FILE=./tags_qa.json" >> $GITHUB_ENV
           elif [[ "${{ github.ref_name }}" == "prod" ]]; then
             echo "PARAMETERS_FILE=./parameters-prod.json" >> $GITHUB_ENV
-          else
-            echo "PARAMETERS_FILE=tags.json" >> $GITHUB_ENV
+            echo "TAG_FILE=./tags_prod.json" >> $GITHUB_ENV
           fi
       
       - name: Load JSON into Environment Variables
@@ -75,27 +76,44 @@ jobs:
           echo "AWS_ACCOUNT=$AWS_ACCOUNT"
           echo "AWS_RUTADIGITAL_ID=$AWS_RUTADIGITAL_ID"
 
+      - name: Process Tags
+        run: |
+          # Convertir el JSON a pares de clave=valor escapados
+          JSON=$(cat $TAG_FILE)
+          TAGS=$(echo "$JSON" | jq -r 'map("\(.Key)=\(.Value|gsub(" "; "_")|gsub("&"; "y"))") | join(" ")')
+          echo "TAGS=${TAGS}" >> $GITHUB_ENV
+          echo "Processed tags: ${TAGS}"
+      
+      #- name: Set BRANCH_NAME from ref
+      #  run: |
+      #    RAW_BRANCH="${{ github.ref_name }}"
+      #    CLEAN_BRANCH="${RAW_BRANCH#*/}" 
+      #    echo "BRANCH_NAME=$CLEAN_BRANCH" >> $GITHUB_ENV
+
+      - name: Set dynamic STACK_NAME
+        run: echo "STACK_NAME=da-${BRANCH_NAME}-ecodistribucion" >> $GITHUB_ENV
+
+
       - name: Configure AWS credentials
         id: creds
         uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: ${{ secrets.OIDC_ROLE }}
           role-session-name: darolesession
-          aws-region: ${{ env.REGION }}
+          aws-region: "us-east-1"
 
 
       - name: Deploy IAM
         id: iam
         shell: bash
-        if: contains(github.event.pull_request.title, '-iam') || contains(github.event.pull_request.title, '-all')
-        env:
-          STACK_NAME: da-ecodistribucion-iam
+        if: contains(github.event.pull_request.title, '-template') || contains(github.event.pull_request.title, '-all')
         run: |
-          aws cloudformation deploy --template-file templates/iam.yaml \
+          aws cloudformation deploy --template-file templates/template.yaml \
             --region $REGION \
             --stack-name $STACK_NAME \
             --capabilities CAPABILITY_NAMED_IAM \
             --no-fail-on-empty-changeset \
+            --tags $TAGS \ 
             --parameter-overrides \
                 pTeamName=$TEAM \
                 Stage=$ENVIRONMENT \
@@ -108,3 +126,46 @@ jobs:
                 pAccountName=$AWS_ACCOUNT \
                 pdeploymentDate=$TIMESTAMP
           aws cloudformation describe-stack-events --stack-name $STACK_NAME --max-items 5
+
+      - name: Load Lambdas from YAML
+        id: load_lambdas
+        run: |
+          LAMBDAS=$(yq -o=json '.' deploy_parameters/lambdas.yaml | jq -c '.lambdas')
+          echo "LAMBDAS=$LAMBDAS" >> $GITHUB_ENV
+
+      - name: Zip and upload all Lambdas
+        if: contains(github.event.pull_request.title, '-lambda') || contains(github.event.pull_request.title, '-all')
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/zip"
+
+          echo "$LAMBDAS" | jq -c '.[]' | while read -r item; do
+            LAMBDA_NAME=$(echo "$item" | jq -r '.name')
+            LAMBDA_PATH=$(echo "$item" | jq -r '.path')
+            ZIP_PATH="$GITHUB_WORKSPACE/zip/$LAMBDA_NAME.zip"
+
+            echo "Processing Lambda: $LAMBDA_NAME from path: $LAMBDA_PATH"
+
+            FULL_PATH=$(realpath "$GITHUB_WORKSPACE/$LAMBDA_PATH")
+            echo "DEBUG: FULL_PATH='$FULL_PATH'"
+            ls -la "$FULL_PATH" || echo "Warning: No se pudo listar el contenido."
+
+            if [ ! -d "$FULL_PATH" ]; then
+              echo "Error: La carpeta $FULL_PATH no existe. Saltando..."
+              continue
+            fi
+
+            cd "$FULL_PATH"
+            zip -r "$ZIP_PATH" ./*
+            cd -
+
+            echo "Uploading ZIP to S3..."
+            aws s3 cp "$ZIP_PATH" "s3://$ARTIFACTORY_BUCKET/stage_lib/lambda/$LAMBDA_NAME/"
+
+            echo "Updating AWS Lambda function..."
+            aws lambda update-function-code \
+              --function-name "$LAMBDA_NAME" \
+              --s3-bucket "$ARTIFACTORY_BUCKET" \
+              --s3-key "stage_lib/lambda/$LAMBDA_NAME/$LAMBDA_NAME.zip" \
+              --region "${{ env.REGION }}" \
+              --publish
+          done

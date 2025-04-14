@@ -1,0 +1,36 @@
+[
+    {
+        "TEAM": "da"
+    },
+    {
+        "ENVIRONMENT": "prod"
+    },
+    {
+        "BRANCH_NAME": "prod"
+    },
+    {
+        "REPOSITORY_NAME":"da-koa-iac-ecodistribucion"
+    },    
+    {
+        "ARTIFACTORY_BUCKET":"da-ecodistribucion-artifacts-prod"
+    },
+    {
+        "AWS_ACCOUNT_ID":"961341533073"
+    },
+    {
+        "AWS_ACCOUNT_ID_OPT":"850616873662"
+    },
+    {
+        "DB_STAGE":"db_ecodistribucion_regional_stage"
+    },
+    {
+        "DB_ANALYTICS":"db_ecodistribucion_regional_analytics"
+    },
+    {
+        "AWS_ACCOUNT":"ecodistribucion"
+    },
+    {
+        "AWS_RUTADIGITAL_ID":"211125296319"
+    }
+  ]
+  
