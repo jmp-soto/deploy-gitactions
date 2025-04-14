@@ -15,13 +15,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     environment:
-      name: ${{ github.base_ref }}
+      name: ${{ startsWith(github.base_ref, 'develop/') && 'develop' || startsWith(github.base_ref, 'qa/') && 'qa' || startsWith(github.base_ref, 'prod/') && 'prod' }}
 
     permissions:
       id-token: write
       contents: read  
     env:
-      ENVIRONMENT: ${{ github.base_ref == 'develop' && 'dev' || github.base_ref }}
+      ENVIRONMENT: ${{ startsWith(github.base_ref, 'develop/') && 'dev' || startsWith(github.base_ref, 'qa/') && 'qa' || startsWith(github.base_ref, 'prod/') && 'prod' }}
       REGION: "us-east-1"
 
     steps:
