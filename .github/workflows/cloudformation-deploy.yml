@@ -116,10 +116,9 @@ jobs:
           aws-region: "us-east-1"
 
 
-      - name: Deploy IAM
-        id: iam
+      - name: Deploy template clouformation
+        id: BRANCH_NAME
         shell: bash
-        if: contains(github.event.pull_request.title, '-template') || contains(github.event.pull_request.title, '-all')
         run: |
           aws cloudformation deploy --template-file templates/template.yaml \
             --region $REGION \
@@ -147,7 +146,6 @@ jobs:
           echo "LAMBDAS=$LAMBDAS" >> $GITHUB_ENV
 
       - name: Zip and upload all Lambdas
-        if: contains(github.event.pull_request.title, '-lambda') || contains(github.event.pull_request.title, '-all')
         run: |
           mkdir -p "$GITHUB_WORKSPACE/zip"
 
