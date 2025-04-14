@@ -15,7 +15,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     environment:
-      name: ${{ contains(github.base_ref, 'develop/') && 'dev' || contains(github.base_ref, 'qa/') && 'qa' || contains(github.base_ref, 'prod/') && 'prod' }}
+      name: "develop"
 
     permissions:
       id-token: write
