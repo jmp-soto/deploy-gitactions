@@ -126,7 +126,7 @@ jobs:
           echo "Subiendo scripts a S3..."
           yq eval '.glue[]' deploy_parameters/glue.yaml | while read -r JOB; do
             JOB_NAME="da-${BRANCH_NAME}-$(echo "$JOB" | yq eval '.name' -)"
-            SCRIPT_PATH=$(echo "$JOB" | yq eval '.script_path' -)
+            SCRIPT_PATH=$(echo "$JOB" | yq eval '.path' -)
             S3_PATH="s3://${ARTIFACTORY_BUCKET}/glue_scripts/${JOB_NAME}/$(basename "$SCRIPT_PATH")"
             
             echo "⬆Subiendo: $SCRIPT_PATH → $S3_PATH"
@@ -208,7 +208,7 @@ jobs:
           echo "Buscando jobs existentes..."
           yq eval '.glue[]' deploy_parameters/glue.yaml | while read -r JOB; do
             JOB_NAME="da-${BRANCH_NAME}-$(echo "$JOB" | yq eval '.name' -)"
-            SCRIPT_NAME=$(echo "$JOB" | yq eval '.script_path' - | xargs basename)
+            SCRIPT_NAME=$(echo "$JOB" | yq eval '.path' - | xargs basename)
             S3_PATH="s3://${ARTIFACTORY_BUCKET}/glue_scripts/${JOB_NAME}/${SCRIPT_NAME}"
             
             if aws glue get-job --job-name "$JOB_NAME" >/dev/null 2>&1; then
