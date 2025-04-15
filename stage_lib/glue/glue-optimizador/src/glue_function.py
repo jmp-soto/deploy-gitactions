@@ -4,7 +4,7 @@ import json
 
 pd.set_option("display.max_columns", 25)
 pd.set_option("display.max_rows", 25)
-
+# Initialize DynamoDB client#####
 # Initialize DynamoDB client#####
 dynamodb = boto3.client('dynamodb')
 
