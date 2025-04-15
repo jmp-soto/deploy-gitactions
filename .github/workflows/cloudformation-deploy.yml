@@ -247,61 +247,70 @@ jobs:
         run: |
           echo "=== ACTUALIZACIÓN DE JOBS GLUE ==="
           
-          # Check if yq is installed
+          # Install yq if not present
           if ! command -v yq &> /dev/null; then
-            echo "Error: yq no está instalado. Por favor instale yq antes de continuar."
-            exit 1
+            echo "Installing yq..."
+            sudo snap install yq || { echo "Failed to install yq"; exit 1; }
           fi
           
-          # Check if glue.yaml exists
+          # Validate glue.yaml file
           if [ ! -f "deploy_parameters/glue.yaml" ]; then
-            echo "Error: Archivo deploy_parameters/glue.yaml no encontrado"
+            echo "::error::File deploy_parameters/glue.yaml not found"
             exit 1
           fi
           
-          # Check if ARTIFACTORY_BUCKET is set
+          # Validate required variables
           if [ -z "${ARTIFACTORY_BUCKET}" ]; then
-            echo "Error: Variable ARTIFACTORY_BUCKET no está definida"
+            echo "::error::ARTIFACTORY_BUCKET is not set"
             exit 1
           fi
           
-          # Process jobs with proper null checking
-          yq eval '.glue[]' deploy_parameters/glue.yaml | while read -r JOB; do
-            JOB_NAME=$(echo "$JOB" | yq eval '.name' -)
+          # Process jobs safely
+          yq eval -j '.glue[]' deploy_parameters/glue.yaml | jq -c '.' | while read -r JOB; do
+            JOB_NAME=$(echo "$JOB" | jq -r '.name')
             
-            # Skip if job name is empty or null
+            # Validate job name
             if [ -z "$JOB_NAME" ] || [ "$JOB_NAME" = "null" ]; then
-              echo "Warning: Se encontró un job sin nombre (se omite)"
+              echo "::warning::Skipping job with empty name"
               continue
             fi
             
-            SCRIPT_PATH=$(echo "$JOB" | yq eval '.path' -)
-            SCRIPT_NAME=$(basename "${SCRIPT_PATH}")
-            S3_PATH="s3://${ARTIFACTORY_BUCKET}/stage_lib/glue/${JOB_NAME}/src/$(basename "$SCRIPT_PATH")"
+            SCRIPT_PATH=$(echo "$JOB" | jq -r '.path')
+            if [ -z "$SCRIPT_PATH" ] || [ "$SCRIPT_PATH" = "null" ]; then
+              echo "::error::Job $JOB_NAME has no path specified"
+              exit 1
+            fi
             
-            echo "Verificando Job: ${JOB_NAME}"
+            SCRIPT_NAME=$(basename "$SCRIPT_PATH")
+            S3_PATH="s3://${ARTIFACTORY_BUCKET}/stage_lib/glue/${JOB_NAME}/src/${SCRIPT_NAME}"
             
-            if aws glue get-job --job-name "$JOB_NAME" >/dev/null 2>&1; then
-              echo "Actualizando Job con script: ${S3_PATH}"
-              
-              # Create JSON payload
-              JSON_PAYLOAD=$(printf '{
+            echo "Processing Job: $JOB_NAME"
+            echo "Script Location: $S3_PATH"
+            
+            # Check if job exists
+            if ! aws glue get-job --job-name "$JOB_NAME" >/dev/null 2>&1; then
+              echo "::warning::Job $JOB_NAME does not exist (skipping)"
+              continue
+            fi
+            
+            # Prepare update payload
+            UPDATE_PAYLOAD=$(jq -n \
+              --arg script_location "$S3_PATH" \
+              '{
                 "Command": {
-                  "ScriptLocation": "%s",
+                  "ScriptLocation": $script_location,
                   "Name": "glueetl"
                 }
-              }' "${S3_PATH}")
-              
-              if aws glue update-job --job-name "$JOB_NAME" --job-update "$JSON_PAYLOAD"; then
-                echo "Job actualizado correctamente"
-              else
-                echo "Error: Fallo al actualizar job ${JOB_NAME}"
-                exit 1
-              fi
+              }')
+            
+            # Update job
+            echo "Updating Job $JOB_NAME..."
+            if aws glue update-job --job-name "$JOB_NAME" --job-update "$UPDATE_PAYLOAD"; then
+              echo "Successfully updated $JOB_NAME"
             else
-              echo "Warning: El Job ${JOB_NAME} no existe (se omite)"
+              echo "::error::Failed to update $JOB_NAME"
+              exit 1
             fi
-            echo ""
           done
           
           echo "=== ACTUALIZACIÓN COMPLETADA ==="
