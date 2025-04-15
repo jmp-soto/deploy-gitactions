@@ -37,18 +37,18 @@ Resources:
       Command:
         Name: "pythonshell"
         PythonVersion: "3"
-        ScriptLocation: !Sub "s3://${pArtifactsBucket}/stage_lib/glue/glue-da-eta-ml/src/glue_function.py"
+        ScriptLocation: !Sub "s3://${pArtifactsBucket}/stage_lib/glue/glue-${pBranchName}/src/glue_function.py"
       DefaultArguments:
         "--ENVIRONMENT": !Ref Stage
         "--ACCOUNTID": !Sub "${pAWSAccountId}"
         "--REGION": !Sub "${pAWSRegion}"
-        "--JOB_NAME": "glue-da-eta-ml"
+        "--JOB_NAME": !Sub "glue-${pBranchName}"
         "--BD_NAME": !Sub "${Stage}"
       ExecutionProperty:
         MaxConcurrentRuns: 2
       MaxCapacity: 1
       MaxRetries: 0
-      Name: glue-da-eta-ml
+      Name: !Sub "glue-${pBranchName}"
       Role: !Ref etaRole
 
   etaRole:
