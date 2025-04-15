@@ -1,5 +1,3 @@
 glue:
-  - name: glue-da-eta-ml
-    path: stage_lib/glue/glue-da-eta-ml/src/glue_function.py
-  - name: glue-da-eta-sp
-    path: stage_lib/glue/glue-da-eta-sp/src/glue_function.py
+  - name: glue-optimizador
+    path: stage_lib/glue/glue-optimizador/src/glue_function.py
