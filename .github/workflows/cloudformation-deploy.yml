@@ -277,7 +277,7 @@ jobs:
             
             SCRIPT_PATH=$(echo "$JOB" | yq eval '.path' -)
             SCRIPT_NAME=$(basename "${SCRIPT_PATH}")
-            S3_PATH="s3://${ARTIFACTORY_BUCKET}/${SCRIPT_NAME}"
+            S3_PATH="s3://${ARTIFACTORY_BUCKET}/stage_lib/glue/${JOB_NAME}/src/$(basename "$SCRIPT_PATH")"
             
             echo "Verificando Job: ${JOB_NAME}"
             
