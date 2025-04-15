@@ -128,20 +128,15 @@ jobs:
         run: |
           echo "=== INICIO DE CARGA DE SCRIPTS GLUE ==="
           yq eval '.glue[]' deploy_parameters/glue.yaml | while read -r JOB; do
-            # Extraer valores con validación
+            # Extraer valores usando el método correcto
             JOB_NAME=$(echo "$JOB" | yq eval '.name' -)
-            SCRIPT_PATH=$(echo "$JOB" | yq eval '.path' -)
+            SCRIPT_PATH=$(echo "$JOB" | yq eval '.path // ""' -)  # Cambio clave aquí
             
-            # Debug: Mostrar valores extraídos
-            echo "Valores crudos:"
-            echo "JOB: $JOB"
-            echo "JOB_NAME: $JOB_NAME"
-            echo "SCRIPT_PATH: $SCRIPT_PATH"
-            
-            # Validación estricta
-            if [ -z "$SCRIPT_PATH" ] || [ "$SCRIPT_PATH" == "null" ]; then
-              echo "Error: El campo 'path' no está definido o es inválido para el job $JOB_NAME"
-              echo "Contenido completo del job:"
+            if [ -z "$SCRIPT_PATH" ]; then
+              echo "Error: Estructura incorrecta en glue.yaml. Se esperaba:"
+              echo "- name: nombre-job"
+              echo "  path: ruta/al/script.py"
+              echo "Contenido actual del job:"
               echo "$JOB"
               exit 1
             fi
@@ -153,15 +148,13 @@ jobs:
             echo "Destino S3: $S3_PATH"
             
             if [ ! -f "$SCRIPT_PATH" ]; then
-              echo "Error: El archivo $SCRIPT_PATH no existe en el repositorio"
-              echo "Buscando en ruta absoluta: $(pwd)/$SCRIPT_PATH"
+              echo "Error: Archivo no encontrado en $SCRIPT_PATH"
+              echo "Buscar en: $(pwd)/$SCRIPT_PATH"
               exit 1
             fi
             
-            echo "Subiendo script..."
             aws s3 cp "$SCRIPT_PATH" "$S3_PATH" || exit 1
-            echo "Script subido correctamente"
-            echo ""
+            echo "Carga exitosa"
           done
 
       
