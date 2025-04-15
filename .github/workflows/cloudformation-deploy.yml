@@ -128,29 +128,41 @@ jobs:
         run: |
           echo "=== INICIO DE CARGA DE SCRIPTS GLUE ==="
           yq eval '.glue[]' deploy_parameters/glue.yaml | while read -r JOB; do
+            # Extraer valores con validación
             JOB_NAME=$(echo "$JOB" | yq eval '.name' -)
             SCRIPT_PATH=$(echo "$JOB" | yq eval '.path' -)
+            
+            # Debug: Mostrar valores extraídos
+            echo "Valores crudos:"
+            echo "JOB: $JOB"
+            echo "JOB_NAME: $JOB_NAME"
+            echo "SCRIPT_PATH: $SCRIPT_PATH"
+            
+            # Validación estricta
+            if [ -z "$SCRIPT_PATH" ] || [ "$SCRIPT_PATH" == "null" ]; then
+              echo "Error: El campo 'path' no está definido o es inválido para el job $JOB_NAME"
+              echo "Contenido completo del job:"
+              echo "$JOB"
+              exit 1
+            fi
+            
             S3_PATH="s3://${ARTIFACTORY_BUCKET}/stage_lib/glue/${JOB_NAME}/src/$(basename "$SCRIPT_PATH")"
             
-            echo "Procesando Job: ${JOB_NAME}"
-            echo "Script Local: ${SCRIPT_PATH}"
-            echo "Destino S3: ${S3_PATH}"
+            echo "Procesando Job: $JOB_NAME"
+            echo "Script Local: $SCRIPT_PATH"
+            echo "Destino S3: $S3_PATH"
             
             if [ ! -f "$SCRIPT_PATH" ]; then
-              echo "Error: El script ${SCRIPT_PATH} no existe en el repositorio"
+              echo "Error: El archivo $SCRIPT_PATH no existe en el repositorio"
+              echo "Buscando en ruta absoluta: $(pwd)/$SCRIPT_PATH"
               exit 1
             fi
             
             echo "Subiendo script..."
-            if aws s3 cp "$SCRIPT_PATH" "$S3_PATH"; then
-              echo "Script subido correctamente"
-            else
-              echo "Error: Fallo al subir script"
-              exit 1
-            fi
+            aws s3 cp "$SCRIPT_PATH" "$S3_PATH" || exit 1
+            echo "Script subido correctamente"
             echo ""
           done
-          echo "=== CARGA COMPLETADA ==="
 
       
       - name: Deploy CloudFormation stack
