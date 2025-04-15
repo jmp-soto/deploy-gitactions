@@ -33,24 +33,24 @@ Parameters:
 Resources:
 
   RSKRecargaNuevosLeads:
-    Type: AWS::Glue::Job
-    Properties:
-      Command:
-        Name: "pythonshell"
-        PythonVersion: "3"
-        ScriptLocation: !Sub "s3://${pArtifactsBucket}/stage_lib/glue-da-eta-ml/src/glue_function.py"
-        DefaultArguments:
-        "--ENVIRONMENT": !Ref Stage
-        "--ACCOUNTID": !Sub "${pAWSAccountId}"
-        "--REGION": !Sub "${pAWSRegion}"
-        "--JOB_NAME": glue-da-eta-ml
-        "--BD_NAME": !Sub "${Stage}"
-      ExecutionProperty:
-        MaxConcurrentRuns: 2
-      MaxCapacity: 1
-      MaxRetries: 0
-      Name: glue-da-eta-ml
-      Role: !Ref etaRole
+  Type: AWS::Glue::Job
+  Properties:
+    Command:
+      Name: "pythonshell"
+      PythonVersion: "3"
+      ScriptLocation: !Sub "s3://${pArtifactsBucket}/stage_lib/glue-da-eta-ml/src/glue_function.py"
+    DefaultArguments:
+      "--ENVIRONMENT": !Ref Stage
+      "--ACCOUNTID": !Sub "${pAWSAccountId}"
+      "--REGION": !Sub "${pAWSRegion}"
+      "--JOB_NAME": "glue-da-eta-ml"
+      "--BD_NAME": !Sub "${Stage}"
+    ExecutionProperty:
+      MaxConcurrentRuns: 2
+    MaxCapacity: 1
+    MaxRetries: 0
+    Name: glue-da-eta-ml
+    Role: !Ref etaRole
 
   etaRole:
     Type: AWS::IAM::Role
