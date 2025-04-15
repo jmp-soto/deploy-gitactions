@@ -285,7 +285,7 @@ jobs:
                   "Name": "glueetl"
                 }
               }
-            EOF
+              EOF
               
               if aws glue update-job --job-name "$JOB_NAME" --job-update "file://${TMP_FILE}"; then
                 echo "Job actualizado correctamente"
