@@ -6,9 +6,6 @@
       "ENVIRONMENT": "dev"
   },
   {
-      "BRANCH_NAME": "optimizador"
-  },
-  {
       "REPOSITORY_NAME":"da-koa-iac-ecodistribucion"
   },    
   {
