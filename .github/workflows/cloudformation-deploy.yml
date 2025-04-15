@@ -68,6 +68,38 @@ jobs:
           TAGS=$(jq -r 'map("\(.Key)=\(.Value | gsub(" "; "_") | gsub("&"; "y"))") | join(" ")' $TAG_FILE)
           echo "TAGS=${TAGS}" >> $GITHUB_ENV
 
+      - name: Validate Variables
+        run: |
+          echo "=== VARIABLES VALIDATION ==="
+          echo "Core Variables:"
+          echo "- TEAM: $TEAM"
+          echo "- ENVIRONMENT: $ENVIRONMENT"
+          echo "- REPOSITORY_NAME: $REPOSITORY_NAME"
+          echo "- BRANCH_NAME: $BRANCH_NAME"
+          echo "- STACK_NAME: $STACK_NAME"
+          
+          echo "\nAWS Variables:"
+          echo "- ARTIFACTORY_BUCKET: $ARTIFACTORY_BUCKET"
+          echo "- REGION: $REGION"
+          echo "- AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID"
+          echo "- AWS_ACCOUNT_ID_OPT: $AWS_ACCOUNT_ID_OPT"
+          echo "- AWS_ACCOUNT: $AWS_ACCOUNT"
+          echo "- AWS_RUTADIGITAL_ID: $AWS_RUTADIGITAL_ID"
+          
+          echo "\nDatabase Variables:"
+          echo "- DB_STAGE: $DB_STAGE"
+          echo "- DB_ANALYTICS: $DB_ANALYTICS"
+          
+          echo "\nDeployment Metadata:"
+          echo "- TIMESTAMP: $TIMESTAMP"
+          echo "- TAGS: $TAGS"
+          
+          # Verificación de variables críticas
+          if [ -z "$ARTIFACTORY_BUCKET" ] || [ -z "$AWS_ACCOUNT_ID" ]; then
+            echo "::error::Critical variables are missing!"
+            exit 1
+          fi
+      
       - name: Set stack name
         run: echo "STACK_NAME=da-${BRANCH_NAME}-ecodistribucion" >> $GITHUB_ENV
 
