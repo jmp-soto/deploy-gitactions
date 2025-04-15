@@ -116,22 +116,41 @@ jobs:
           if [ -f "deploy_parameters/glue.yaml" ]; then
             JOBS_COUNT=$(yq eval '.glue | length' deploy_parameters/glue.yaml)
             echo "jobs_count=${JOBS_COUNT}" >> $GITHUB_OUTPUT
+            echo "Contenido de glue.yaml:"
+            yq eval '.' deploy_parameters/glue.yaml
           else
             echo "jobs_count=0" >> $GITHUB_OUTPUT
-            echo "Archivo glue.yaml no encontrado"
+            echo "Warning: Archivo glue.yaml no encontrado"
           fi
-      - name: Upload Scripts to S3
+
+      - name: Upload Glue Scripts to S3
         if: steps.check_jobs.outputs.jobs_count > 0
         run: |
-          echo "Subiendo scripts a S3..."
+          echo "=== INICIO DE CARGA DE SCRIPTS GLUE ==="
           yq eval '.glue[]' deploy_parameters/glue.yaml | while read -r JOB; do
-            JOB_NAME="da-${BRANCH_NAME}-$(echo "$JOB" | yq eval '.name' -)"
+            JOB_NAME=$(echo "$JOB" | yq eval '.name' -)
             SCRIPT_PATH=$(echo "$JOB" | yq eval '.path' -)
             S3_PATH="s3://${ARTIFACTORY_BUCKET}/stage_lib/glue/${JOB_NAME}/src/$(basename "$SCRIPT_PATH")"
             
-            echo "⬆Subiendo: $SCRIPT_PATH → $S3_PATH"
-            aws s3 cp "$SCRIPT_PATH" "$S3_PATH" || echo "Error subiendo $SCRIPT_PATH"
+            echo "Procesando Job: ${JOB_NAME}"
+            echo "Script Local: ${SCRIPT_PATH}"
+            echo "Destino S3: ${S3_PATH}"
+            
+            if [ ! -f "$SCRIPT_PATH" ]; then
+              echo "Error: El script ${SCRIPT_PATH} no existe en el repositorio"
+              exit 1
+            fi
+            
+            echo "Subiendo script..."
+            if aws s3 cp "$SCRIPT_PATH" "$S3_PATH"; then
+              echo "Script subido correctamente"
+            else
+              echo "Error: Fallo al subir script"
+              exit 1
+            fi
+            echo ""
           done
+          echo "=== CARGA COMPLETADA ==="
 
       
       - name: Deploy CloudFormation stack
@@ -202,20 +221,34 @@ jobs:
             fi
           done
 
-      - name: Update Existing Jobs
+      - name: Update Existing Glue Jobs
         if: steps.check_jobs.outputs.jobs_count > 0
         run: |
-          echo "Buscando jobs existentes..."
+          echo "=== ACTUALIZACION DE JOBS GLUE ==="
           yq eval '.glue[]' deploy_parameters/glue.yaml | while read -r JOB; do
-            JOB_NAME="da-${BRANCH_NAME}-$(echo "$JOB" | yq eval '.name' -)"
-            SCRIPT_NAME=$(echo "$JOB" | yq eval '.path' - | xargs basename)
-            S3_PATH="s3://${ARTIFACTORY_BUCKET}/glue_scripts/${JOB_NAME}/${SCRIPT_NAME}"
+            JOB_NAME=$(echo "$JOB" | yq eval '.name' -)
+            SCRIPT_NAME=$(basename "$(echo "$JOB" | yq eval '.path' -)")
+            S3_PATH="s3://${ARTIFACTORY_BUCKET}/stage_lib/glue/${JOB_NAME}/src/${SCRIPT_NAME}"
+            
+            echo "Verificando Job: ${JOB_NAME}"
             
             if aws glue get-job --job-name "$JOB_NAME" >/dev/null 2>&1; then
-              echo "🛠 Actualizando: $JOB_NAME"
-              aws glue update-job --job-name "$JOB_NAME" \
-                --job-update '{"Command": {"ScriptLocation": "'"$S3_PATH"'"}}'
+              echo "Actualizando Job con script: ${S3_PATH}"
+              if aws glue update-job --job-name "$JOB_NAME" \
+                --job-update '{
+                  "Command": {
+                    "ScriptLocation": "'"${S3_PATH}"'",
+                    "Name": "glueetl"
+                  }
+                }'; then
+                echo "Job actualizado correctamente"
+              else
+                echo "Error: Fallo al actualizar job"
+                exit 1
+              fi
             else
-              echo "Omitiendo: $JOB_NAME (no existe)"
+              echo "Warning: El Job ${JOB_NAME} no existe (se omite)"
             fi
+            echo ""
           done
+          echo "=== ACTUALIZACION COMPLETADA ==="
