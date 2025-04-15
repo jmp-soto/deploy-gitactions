@@ -38,19 +38,18 @@ Resources:
       Command:
         Name: "pythonshell"
         PythonVersion: "3"
-        ScriptLocation: !Sub "s3://sdlf-${pTeamName}-scripts-${AWS::Region}-${AWS::AccountId}-bucket/stage-b-recarga-nuevos-leads/src/sdlf-rtdrisk-recarga-nuevos-leads-job.py"
-      DefaultArguments:
-        "--extra-py-files": !Sub "s3://ibk-${pTeamName}-library-${pEnv}-bucket/awswrangler-2.8.0-py3-none-any.whl,s3://ibk-${pTeamName}-library-${pEnv}-bucket/ibk_riskvolution_libraries_utils_python.py"
-        "--ENVIRONMENT": !Ref pEnv
-        "--ACCOUNTID": !Sub "${AWS::AccountId}"
-        "--REGION": !Sub "${AWS::Region}"
-        "--JOB_NAME": !Join ['-', ["sdlf", !Ref pTeamName, !Ref pBranchName, "recarga-nuevos-leads-job"]]
+        ScriptLocation: !Sub "s3://${pArtifactsBucket}/stage_lib/src/glue_function.py"
+        DefaultArguments:
+        "--ENVIRONMENT": !Ref Stage
+        "--ACCOUNTID": !Sub "${pAWSAccountId}"
+        "--REGION": !Sub "${pAWSRegion}"
+        "--JOB_NAME": glue-da-eta-ml
         "--BD_NAME": !Sub "${Stage}"
       ExecutionProperty:
         MaxConcurrentRuns: 2
       MaxCapacity: 1
       MaxRetries: 0
-      Name: !Join ['-', ["sdlf", !Ref pTeamName, !Ref pBranchName, "recarga-nuevos-leads-job"]]
+      Name: glue-da-eta-ml
       Role: !Ref etaRole
 
   etaRole:
