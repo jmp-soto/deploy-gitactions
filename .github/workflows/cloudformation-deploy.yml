@@ -127,35 +127,51 @@ jobs:
         if: steps.check_jobs.outputs.jobs_count > 0
         run: |
           echo "=== INICIO DE CARGA DE SCRIPTS GLUE ==="
-          yq eval '.glue[]' deploy_parameters/glue.yaml | while read -r JOB; do
-            # Extraer valores usando el método correcto
+          
+          # Instalar yq si no está presente (versión compatible)
+          if ! command -v yq &> /dev/null; then
+            sudo snap install yq
+          fi
+          
+          # Verificación explícita del archivo YAML
+          echo "Contenido de glue.yaml:"
+          cat deploy_parameters/glue.yaml
+          
+          # Procesamiento robusto
+          while read -r JOB; do
+            # Extraer valores usando eval seguro
             JOB_NAME=$(echo "$JOB" | yq eval '.name' -)
-            SCRIPT_PATH=$(echo "$JOB" | yq eval '.path // ""' -)  # Cambio clave aquí
+            SCRIPT_PATH=$(echo "$JOB" | yq eval '.path' -)
             
-            if [ -z "$SCRIPT_PATH" ]; then
-              echo "Error: Estructura incorrecta en glue.yaml. Se esperaba:"
-              echo "- name: nombre-job"
-              echo "  path: ruta/al/script.py"
-              echo "Contenido actual del job:"
+            echo "Procesando Job: $JOB_NAME"
+            echo "Script Path Extraído: $SCRIPT_PATH"
+            
+            # Validación estricta
+            if [[ -z "$SCRIPT_PATH" || "$SCRIPT_PATH" == "null" ]]; then
+              echo "::error::El campo 'path' no se extrajo correctamente para $JOB_NAME"
+              echo "Contenido crudo del job:"
               echo "$JOB"
               exit 1
             fi
             
+            # Construir ruta S3
             S3_PATH="s3://${ARTIFACTORY_BUCKET}/stage_lib/glue/${JOB_NAME}/src/$(basename "$SCRIPT_PATH")"
             
-            echo "Procesando Job: $JOB_NAME"
-            echo "Script Local: $SCRIPT_PATH"
-            echo "Destino S3: $S3_PATH"
-            
+            # Verificar existencia del archivo
             if [ ! -f "$SCRIPT_PATH" ]; then
-              echo "Error: Archivo no encontrado en $SCRIPT_PATH"
-              echo "Buscar en: $(pwd)/$SCRIPT_PATH"
+              echo "::error::El archivo $SCRIPT_PATH no existe"
+              echo "Ruta absoluta probada: $(pwd)/$SCRIPT_PATH"
               exit 1
             fi
             
+            # Subir a S3
+            echo "Subiendo $SCRIPT_PATH a $S3_PATH"
             aws s3 cp "$SCRIPT_PATH" "$S3_PATH" || exit 1
-            echo "Carga exitosa"
-          done
+            echo "Carga exitosa para $JOB_NAME"
+            
+          done < <(yq eval -j '.glue[]' deploy_parameters/glue.yaml | jq -c .)
+          
+          echo "=== CARGA COMPLETADA ==="
 
       
       - name: Deploy CloudFormation stack
