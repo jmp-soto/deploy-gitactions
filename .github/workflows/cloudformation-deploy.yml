@@ -265,26 +265,32 @@ jobs:
             exit 1
           fi
           
+          # Process jobs with proper null checking
           yq eval '.glue[]' deploy_parameters/glue.yaml | while read -r JOB; do
             JOB_NAME=$(echo "$JOB" | yq eval '.name' -)
+            
+            # Skip if job name is empty or null
+            if [ -z "$JOB_NAME" ] || [ "$JOB_NAME" = "null" ]; then
+              echo "Warning: Se encontró un job sin nombre (se omite)"
+              continue
+            fi
+            
             SCRIPT_PATH=$(echo "$JOB" | yq eval '.path' -)
             SCRIPT_NAME=$(basename "${SCRIPT_PATH}")
-            S3_PATH="s3://${ARTIFACTORY_BUCKET}/stage_lib/glue/${JOB_NAME}/src/${SCRIPT_NAME}"
+            S3_PATH="s3://${ARTIFACTORY_BUCKET}/${SCRIPT_NAME}"
             
             echo "Verificando Job: ${JOB_NAME}"
             
             if aws glue get-job --job-name "$JOB_NAME" >/dev/null 2>&1; then
               echo "Actualizando Job con script: ${S3_PATH}"
               
-              # Create JSON directly without here-document
-              JSON_PAYLOAD=$(jq -n \
-                --arg loc "${S3_PATH}" \
-                '{
-                  "Command": {
-                    "ScriptLocation": $loc,
-                    "Name": "glueetl"
-                  }
-                }')
+              # Create JSON payload
+              JSON_PAYLOAD=$(printf '{
+                "Command": {
+                  "ScriptLocation": "%s",
+                  "Name": "glueetl"
+                }
+              }' "${S3_PATH}")
               
               if aws glue update-job --job-name "$JOB_NAME" --job-update "$JSON_PAYLOAD"; then
                 echo "Job actualizado correctamente"
