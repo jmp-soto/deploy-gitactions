@@ -127,7 +127,7 @@ jobs:
           yq eval '.glue[]' deploy_parameters/glue.yaml | while read -r JOB; do
             JOB_NAME="da-${BRANCH_NAME}-$(echo "$JOB" | yq eval '.name' -)"
             SCRIPT_PATH=$(echo "$JOB" | yq eval '.path' -)
-            S3_PATH="s3://${ARTIFACTORY_BUCKET}/glue_scripts/${JOB_NAME}/$(basename "$SCRIPT_PATH")"
+            S3_PATH="s3://${ARTIFACTORY_BUCKET}/stage_lib/glue/${JOB_NAME}/src/$(basename "$SCRIPT_PATH")"
             
             echo "⬆Subiendo: $SCRIPT_PATH → $S3_PATH"
             aws s3 cp "$SCRIPT_PATH" "$S3_PATH" || echo "Error subiendo $SCRIPT_PATH"
