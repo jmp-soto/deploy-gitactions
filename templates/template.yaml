@@ -38,7 +38,7 @@ Resources:
       Command:
         Name: "pythonshell"
         PythonVersion: "3"
-        ScriptLocation: !Sub "s3://${pArtifactsBucket}/stage_lib/src/glue_function.py"
+        ScriptLocation: !Sub "s3://${pArtifactsBucket}/stage_lib/glue-da-eta-ml/src/glue_function.py"
         DefaultArguments:
         "--ENVIRONMENT": !Ref Stage
         "--ACCOUNTID": !Sub "${pAWSAccountId}"
