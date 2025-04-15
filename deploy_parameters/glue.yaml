@@ -1,3 +1,3 @@
 glue:
-  - name: glue-optimizador
-    path: stage_lib/glue/glue-optimizador/src/glue_function.py
+  #- name: glue-optimizador
+  #  path: stage_lib/glue/glue-optimizador/src/glue_function.py
