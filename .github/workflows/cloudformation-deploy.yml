@@ -3,243 +3,147 @@ name: CloudFormation deploy
 on:
   pull_request:
     types: [closed]
-    branches:
-      - develop/*
-      - qa/*
-      - prod/*
-  push:
-    branches:
-      - develop/*
-
-env:
-  REGION: us-east-1
+    branches: [develop, qa, prod]
 
 jobs:
-  deploy:
+  build:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     environment:
-      name: ${{ contains(github.ref, 'develop/') && 'develop' || contains(github.ref, 'qa/') && 'qa' || contains(github.ref, 'prod/') && 'prod' }}
-    
+      name: ${{ github.base_ref }}
+
     permissions:
       id-token: write
       contents: read
+      pull-requests: write
+        
+    env:
+      ENVIRONMENT: ${{ github.base_ref == 'develop' && 'dev' || github.base_ref }}
+      REGION: "us-east-1"
 
     steps:
       - name: Set timestamp
         run: echo "TIMESTAMP=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
 
-      - name: Determine environment and branch
-        id: env
+      - name: Define environment
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            ref_part="${{ github.base_ref }}"
+          if [[ "${{ github.base_ref }}" == "develop" ]]; then
+            echo "ENVIRONMENT=dev" >> $GITHUB_ENV
           else
-            ref_part="${{ github.ref_name }}"
+            echo "ENVIRONMENT=${{ github.base_ref }}" >> $GITHUB_ENV
           fi
-          
-          env_name="${ref_part%%/*}"
-          branch_name="${ref_part#*/}"
-          
-          case "${env_name,,}" in
-            develop) env_value="dev" ;;
-            qa) env_value="qa" ;;
-            prod) env_value="prod" ;;
-            *) env_value="${env_name,,}" ;;
-          esac
-          
-          echo "ENVIRONMENT=$env_value" >> $GITHUB_ENV
-          echo "BRANCH_NAME=$branch_name" >> $GITHUB_ENV
 
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set configuration files
+      - name: Set Parameters File
         run: |
           echo "PARAMETERS_FILE=./parameters-$ENVIRONMENT.json" >> $GITHUB_ENV
-          echo "TAG_FILE=./tags_$ENVIRONMENT.json" >> $GITHUB_ENV
-
-      - name: Load parameters
+      
+      - name: Load JSON into Environment Variables
         run: |
-          jq -r '.[] | "\(keys[0])=\(.[keys[0]] | tostring)"' $PARAMETERS_FILE >> $GITHUB_ENV
-          echo "Loaded variables from $PARAMETERS_FILE"
-
-      - name: Process tags
-        run: |
-          TAGS=$(jq -r 'map("\(.Key)=\(.Value | gsub(" "; "_") | gsub("&"; "y"))") | join(" ")' $TAG_FILE)
-          echo "TAGS=${TAGS}" >> $GITHUB_ENV
-
+          for row in $(jq -c '.[]' "$PARAMETERS_FILE"); do
+            key=$(echo "$row" | jq -r 'keys[0]')
+            value=$(echo "$row" | jq -r '.[]')
+            echo "::add-mask::$value"
+            echo "${key}=${value}" >> $GITHUB_ENV
+          done
+          echo "Loaded variables from $PARAMETERS_FILE."
+      
       - name: Validate Variables
         run: |
-          echo "=== VARIABLES VALIDATION ==="
-          echo "Core Variables:"
-          echo "- TEAM: $TEAM"
-          echo "- ENVIRONMENT: $ENVIRONMENT"
-          echo "- REPOSITORY_NAME: $REPOSITORY_NAME"
-          echo "- BRANCH_NAME: $BRANCH_NAME"
-          echo "- STACK_NAME: $STACK_NAME"
-          
-          echo "\nAWS Variables:"
-          echo "- ARTIFACTORY_BUCKET: $ARTIFACTORY_BUCKET"
-          echo "- REGION: $REGION"
-          echo "- AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID"
-          echo "- AWS_ACCOUNT_ID_OPT: $AWS_ACCOUNT_ID_OPT"
-          echo "- AWS_ACCOUNT: $AWS_ACCOUNT"
-          echo "- AWS_RUTADIGITAL_ID: $AWS_RUTADIGITAL_ID"
-          
-          echo "\nDatabase Variables:"
-          echo "- DB_STAGE: $DB_STAGE"
-          echo "- DB_ANALYTICS: $DB_ANALYTICS"
-          
-          echo "\nDeployment Metadata:"
-          echo "- TIMESTAMP: $TIMESTAMP"
-          echo "- TAGS: $TAGS"
-          
-          # Verificación de variables críticas
-          if [ -z "$ARTIFACTORY_BUCKET" ] || [ -z "$AWS_ACCOUNT_ID" ]; then
-            echo "::error::Critical variables are missing!"
-            exit 1
-          fi
-      
-      - name: Set stack name
-        run: echo "STACK_NAME=da-${BRANCH_NAME}-ecodistribucion" >> $GITHUB_ENV
+          echo "TEAM=$TEAM"
+          echo "ENVIRONMENT=$ENVIRONMENT"
+          echo "BRANCH_NAME=$BRANCH_NAME"
+          echo "REPOSITORY_NAME=$REPOSITORY_NAME"
+          echo "ARTIFACTORY_BUCKET=$ARTIFACTORY_BUCKET"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        id: creds
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: ${{ secrets.OIDC_ROLE }}
-          role-session-name: github-actions-deploy
+          role-session-name: darolesession
           aws-region: ${{ env.REGION }}
 
-      - name: Check for Glue Jobs
-        id: check_jobs
+      - name: Install yq and jq
         run: |
-          if [ -f "deploy_parameters/glue.yaml" ]; then
-            JOBS_COUNT=$(yq eval '.glue | length' deploy_parameters/glue.yaml)
-            echo "jobs_count=${JOBS_COUNT}" >> $GITHUB_OUTPUT
-            echo "Contenido de glue.yaml:"
-            yq eval '.' deploy_parameters/glue.yaml
-          else
-            echo "jobs_count=0" >> $GITHUB_OUTPUT
-            echo "Warning: Archivo glue.yaml no encontrado"
-          fi
+          sudo apt-get update && sudo apt-get install -y jq
+          wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
 
-      - name: Upload Glue Scripts to S3
-        if: steps.check_jobs.outputs.jobs_count > 0
-        run: |
-          echo "=== INICIO DE CARGA DE SCRIPTS GLUE ==="
-          
-          # Instalar yq si no está presente (versión compatible)
-          if ! command -v yq &> /dev/null; then
-            sudo snap install yq
-          fi
-          
-          # Verificación explícita del archivo YAML
-          echo "Contenido de glue.yaml:"
-          cat deploy_parameters/glue.yaml
-          
-          # Procesamiento robusto
-          while read -r JOB; do
-            # Extraer valores usando eval seguro
-            JOB_NAME=$(echo "$JOB" | yq eval '.name' -)
-            SCRIPT_PATH=$(echo "$JOB" | yq eval '.path' -)
-            
-            echo "Procesando Job: $JOB_NAME"
-            echo "Script Path Extraído: $SCRIPT_PATH"
-            
-            # Validación estricta
-            if [[ -z "$SCRIPT_PATH" || "$SCRIPT_PATH" == "null" ]]; then
-              echo "::error::El campo 'path' no se extrajo correctamente para $JOB_NAME"
-              echo "Contenido crudo del job:"
-              echo "$JOB"
-              exit 1
-            fi
-            
-            # Construir ruta S3
-            S3_PATH="s3://${ARTIFACTORY_BUCKET}/stage_lib/glue/${JOB_NAME}/src/$(basename "$SCRIPT_PATH")"
-            
-            # Verificar existencia del archivo
-            if [ ! -f "$SCRIPT_PATH" ]; then
-              echo "::error::El archivo $SCRIPT_PATH no existe"
-              echo "Ruta absoluta probada: $(pwd)/$SCRIPT_PATH"
-              exit 1
-            fi
-            
-            # Subir a S3
-            echo "Subiendo $SCRIPT_PATH a $S3_PATH"
-            aws s3 cp "$SCRIPT_PATH" "$S3_PATH" || exit 1
-            echo "Carga exitosa para $JOB_NAME"
-            
-          done < <(yq eval -j '.glue[]' deploy_parameters/glue.yaml | jq -c .)
-          
-          echo "=== CARGA COMPLETADA ==="
+      - name: Get PR title
+        id: pr_title
+        run: echo "PR_TITLE=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
 
-      
-      - name: Deploy CloudFormation stack
-        run: |
-          aws cloudformation deploy \
-            --template-file templates/template.yaml \
-            --region $REGION \
-            --stack-name $STACK_NAME \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --no-fail-on-empty-changeset \
-            --tags $TAGS \
-            --parameter-overrides \
-              pTeamName=$TEAM \
-              Stage=$ENVIRONMENT \
-              pBranchName=$BRANCH_NAME \
-              pArtifactsBucket=$ARTIFACTORY_BUCKET \
-              pAWSRegion=$REGION \
-              pAWSAccountId=$AWS_ACCOUNT_ID \
-              pAWSAccountOpt=$AWS_ACCOUNT_ID_OPT \
-              pdbStageName=$DB_STAGE \
-              pAccountName=$AWS_ACCOUNT \
-              pdeploymentDate=$TIMESTAMP
-          
-          aws cloudformation describe-stack-events --stack-name $STACK_NAME --max-items 5
-
-      - name: Load Lambdas configuration
+      - name: Load Lambdas from YAML
         id: load_lambdas
         run: |
-          if [ -f "deploy_parameters/lambdas.yaml" ]; then
-            LAMBDAS=$(yq -o=json '.' deploy_parameters/lambdas.yaml | jq -c '.lambdas? // empty')
-            if [ -n "$LAMBDAS" ] && [ "$LAMBDAS" != "null" ]; then
-              echo "LAMBDAS=$LAMBDAS" >> $GITHUB_ENV
-              echo "HAS_LAMBDAS=true" >> $GITHUB_ENV
-            else
-              echo "HAS_LAMBDAS=false" >> $GITHUB_ENV
-              echo "No Lambdas found or file is empty"
+          LAMBDAS=$(yq -o=json '.' templates/lambdas.yaml | jq -c '.lambdas')
+          echo "LAMBDAS=$LAMBDAS" >> $GITHUB_ENV
+
+      - name: Extract Lambdas to update (match exact name in PR title)
+        run: |
+          set -euo pipefail
+          echo "PR title: $PR_TITLE"
+          MATCHING_LAMBDAS=()
+          while read -r row; do
+            LAMBDA_NAME=$(echo "$row" | jq -r '.name')
+            LAMBDA_PATH=$(echo "$row" | jq -r '.path')
+            # Coincidencia exacta (sensible a mayúsculas/minúsculas) por subcadena
+            if [[ "$PR_TITLE" == *"$LAMBDA_NAME"* ]]; then
+              MATCHING_LAMBDAS+=("$LAMBDA_NAME:$LAMBDA_PATH")
             fi
-          else
-            echo "HAS_LAMBDAS=false" >> $GITHUB_ENV
-            echo "lambdas.yaml file not found"
+          done < <(echo "$LAMBDAS" | jq -c '.[]')
+
+          if [ ${#MATCHING_LAMBDAS[@]} -eq 0 ]; then
+            echo "No matching Lambdas found. Skipping update."
+            exit 0
           fi
 
-      - name: Deploy Lambda functions
-        if: env.HAS_LAMBDAS == 'true'
+          # Unicos
+          printf "%s\n" "${MATCHING_LAMBDAS[@]}" | sort -u > lambdas_to_update.txt
+          echo "Lambdas to update:"
+          cat lambdas_to_update.txt
+
+          echo "LAMBDAS_TO_UPDATE=\"$(paste -sd' ' lambdas_to_update.txt)\"" >> $GITHUB_ENV
+
+      - name: Zip and upload selected Lambdas
         run: |
+          set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/zip"
           
-          echo "$LAMBDAS" | jq -c '.[]' | while read -r item; do
-            lambda_name=$(echo "$item" | jq -r '.name')
-            lambda_path=$(echo "$item" | jq -r '.path')
-            zip_path="$GITHUB_WORKSPACE/zip/$lambda_name.zip"
-            
-            echo "Processing Lambda: $lambda_name"
-            
-            if [ -d "$GITHUB_WORKSPACE/$lambda_path" ]; then
-              (cd "$GITHUB_WORKSPACE/$lambda_path" && zip -r "$zip_path" ./*)
-              
-              aws s3 cp "$zip_path" "s3://$ARTIFACTORY_BUCKET/stage_lib/lambda/$lambda_name/"
-              
-              aws lambda update-function-code \
-                --function-name "$lambda_name" \
-                --s3-bucket "$ARTIFACTORY_BUCKET" \
-                --s3-key "stage_lib/lambda/$lambda_name/$lambda_name.zip" \
-                --region "$REGION" \
-                --publish
-            else
-              echo "Warning: Directory $lambda_path not found. Skipping $lambda_name"
+          for item in ${LAMBDAS_TO_UPDATE}; do
+            LAMBDA_NAME=$(echo "$item" | cut -d':' -f1 | tr -d '"')
+            LAMBDA_PATH=$(echo "$item" | cut -d':' -f2 | tr -d '"')
+            ZIP_PATH="$GITHUB_WORKSPACE/zip/$LAMBDA_NAME.zip"
+
+            echo ""
+            echo "Processing Lambda: $LAMBDA_NAME from path: $LAMBDA_PATH"
+
+            FULL_PATH=$(realpath "$GITHUB_WORKSPACE/$LAMBDA_PATH" || true)
+            echo "DEBUG: FULL_PATH='$FULL_PATH'"
+            ls -la "$FULL_PATH" || echo "Warning: No se pudo listar el contenido."
+
+            if [ -z "$FULL_PATH" ] || [ ! -d "$FULL_PATH" ]; then
+              echo "Error: La carpeta $FULL_PATH no existe. Saltando..."
+              continue
             fi
+
+            (
+              cd "$FULL_PATH"
+              zip -r "$ZIP_PATH" ./* \
+                -x "**/.git/**" "**/.github/**" "**/__pycache__/**" "**/.pytest_cache/**" "**/node_modules/**" "**/*.pyc" "**/.DS_Store"
+            )
+
+            echo "Uploading ZIP to S3..."
+            aws s3 cp "$ZIP_PATH" "s3://$ARTIFACTORY_BUCKET/src/lambda/$LAMBDA_NAME/"
+
+            echo "Updating AWS Lambda function..."
+            aws lambda update-function-code \
+              --function-name "$LAMBDA_NAME" \
+              --s3-bucket "$ARTIFACTORY_BUCKET" \
+              --s3-key "src/lambda/$LAMBDA_NAME/$LAMBDA_NAME.zip" \
+              --region "${{ env.REGION }}" \
+              --publish
           done
-
-
