@@ -17,11 +17,11 @@ lambdas:
     path: src/lambda/Lambda-da-skycop-eventos-paraguay/src/
   - name: Lambda-da-skycop-eventos-consolidado-py
     path: src/lambda/Lambda-da-skycop-eventos-consolidado-paraguay/src/
-  - name: Lambda-da-eta-ini-fin-consolidado-cl
-    path: src/lambda/Lambda-da-eta-ini-fin-consolidado-cl/src/
-  - name: Lambda-da-routes-simpliroute-cl
-    path: src/lambda/Lambda-da-routes-simpliroute-chile/src/
-  - name: Lambda-da-visits-simpliroute-cl
-    path: src/lambda/Lambda-da-visits-simpliroute-cl/src/
+  - name: Lambda-da-skycop-speedings-py
+    path: src/lambda/Lambda-da-skycop-speedings-py/src/
   - name: Lambda-da-skycop-eventos-py
-    path: src/lambda/Lambda-da-invoices-simpliroute-cl/src/
+    path: src/lambda/Lambda-da-skycop-eventos-py/src/
+  - name: Lambda-da-skycop-fleetdrivingevents-py
+    path: src/lambda/Lambda-da-skycop-fleetdrivingevents-py/src/
+  - name: Lambda-da-skycop-fleetstop-py
+    path: src/lambda/Lambda-da-skycop-fleetstop-py/src/
