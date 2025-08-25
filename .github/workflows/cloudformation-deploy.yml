@@ -3,7 +3,7 @@ name: CloudFormation deploy#
 on:
   pull_request:
     types: [closed]
-    branches: [develop, qa, prod]
+    branches: [template, qa, prod]
 
 jobs:
   build:
@@ -18,7 +18,7 @@ jobs:
       pull-requests: write
         
     env:
-      ENVIRONMENT: ${{ github.base_ref == 'develop' && 'dev' || github.base_ref }}
+      ENVIRONMENT: ${{ github.base_ref == 'template' && 'template' || github.base_ref }}
       REGION: "us-east-1"
 
     steps:
@@ -27,7 +27,7 @@ jobs:
 
       - name: Define environment
         run: |
-          if [[ "${{ github.base_ref }}" == "develop" ]]; then
+          if [[ "${{ github.base_ref }}" == "template" ]]; then
             echo "ENVIRONMENT=dev" >> $GITHUB_ENV
           else
             echo "ENVIRONMENT=${{ github.base_ref }}" >> $GITHUB_ENV
