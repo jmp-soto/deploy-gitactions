@@ -72,9 +72,61 @@ jobs:
           wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
           chmod +x /usr/local/bin/yq
 
+
+      - name: Upload Glue Scripts to S3
+        if: steps.check_jobs.outputs.jobs_count > 0
+        run: |
+          echo "=== INICIO DE CARGA DE SCRIPTS GLUE ==="
+          
+          # Instalar yq si no está presente (versión compatible)
+          if ! command -v yq &> /dev/null; then
+            sudo snap install yq
+          fi
+          
+          # Verificación explícita del archivo YAML
+          echo "Contenido de glue.yaml:"
+          cat deploy_parameters/glue.yaml
+          
+          # Procesamiento robusto
+          while read -r JOB; do
+            # Extraer valores usando eval seguro
+            JOB_NAME=$(echo "$JOB" | yq eval '.name' -)
+            SCRIPT_PATH=$(echo "$JOB" | yq eval '.path' -)
+            
+            echo "Procesando Job: $JOB_NAME"
+            echo "Script Path Extraído: $SCRIPT_PATH"
+            
+            # Validación estricta
+            if [[ -z "$SCRIPT_PATH" || "$SCRIPT_PATH" == "null" ]]; then
+              echo "::error::El campo 'path' no se extrajo correctamente para $JOB_NAME"
+              echo "Contenido crudo del job:"
+              echo "$JOB"
+              exit 1
+            fi
+            
+            # Construir ruta S3
+            S3_PATH="s3://${ARTIFACTORY_BUCKET}/stage_lib/glue/${JOB_NAME}/src/$(basename "$SCRIPT_PATH")"
+            
+            # Verificar existencia del archivo
+            if [ ! -f "$SCRIPT_PATH" ]; then
+              echo "::error::El archivo $SCRIPT_PATH no existe"
+              echo "Ruta absoluta probada: $(pwd)/$SCRIPT_PATH"
+              exit 1
+            fi
+            
+            ### Subir a S3
+            echo "Subiendo $SCRIPT_PATH a $S3_PATH"
+            aws s3 cp "$SCRIPT_PATH" "$S3_PATH" || exit 1
+            echo "Carga exitosa para $JOB_NAME"
+            
+          done < <(yq eval -j '.glue[]' deploy_parameters/glue.yaml | jq -c .)
+          
+          echo "=== CARGA COMPLETADA ==="
+
       - name: Get PR title
         id: pr_title
         run: echo "PR_TITLE=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
+
 
       - name: Load Lambdas from YAML
         id: load_lambdas
