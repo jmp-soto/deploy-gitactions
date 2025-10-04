@@ -1,0 +1,27 @@
+lambdas:
+  - name: lambda-da-statistics-db-Analytics
+    path: src/lambda/lambda-da-statistics-db-Analytics/src/
+  - name: Lambda-da-sr-eta-cl
+    path: src/lambda/Lambda-da-sr-eta-cl/src/
+  - name: Lambda-da-ml-eta-cl
+    path: src/lambda/Lambda-da-ml-eta-cl/src/
+  - name: Lambda-da-eta-consolidado-cl
+    path: src/lambda/Lambda-da-eta-consolidado-cl/src/
+  - name: Lambda-da-eta-reorder-consolidado-cl
+    path: src/lambda/Lambda-da-eta-reorder-consolidado-cl/src/
+  - name: Lambda-da-nps-feedback-rt-rg
+    path: src/lambda/Lambda-da-nps-feedback-rt-rg/src/
+  - name: Lambda-da-nps-feedback-consolidado-rg
+    path: src/lambda/Lambda-da-nps-feedback-consolidado-rg/src/
+  - name: Lambda-da-skycop-eventos-py
+    path: src/lambda/Lambda-da-skycop-eventos-paraguay/src/
+  - name: Lambda-da-skycop-eventos-consolidado-py
+    path: src/lambda/Lambda-da-skycop-eventos-consolidado-paraguay/src/
+  - name: Lambda-da-skycop-speedings-py
+    path: src/lambda/Lambda-da-skycop-speedings-py/src/
+  - name: Lambda-da-skycop-eventos-py
+    path: src/lambda/Lambda-da-skycop-eventos-py/src/
+  - name: Lambda-da-skycop-fleetdrivingevents-py
+    path: src/lambda/Lambda-da-skycop-fleetdrivingevents-py/src/
+  - name: Lambda-da-skycop-fleetstop-py
+    path: src/lambda/Lambda-da-skycop-fleetstop-py/src/

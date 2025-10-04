@@ -9,10 +9,10 @@
       "REPOSITORY_NAME":"da-koa-iac-ecodistribucion"
   },    
   {
-      "ARTIFACTORY_BUCKET":"testa-artifacts-dev-josemaria"
+      "ARTIFACTORY_BUCKET":"stage-nelson-dev"
   },
   {
-      "AWS_ACCOUNT_ID":"149536487709"
+      "AWS_ACCOUNT_ID":"682033497219"
   },
   {
       "AWS_ACCOUNT_ID_OPT":"632352041483"
