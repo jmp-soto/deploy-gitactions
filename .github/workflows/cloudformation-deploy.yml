@@ -101,7 +101,7 @@ jobs:
             exit 0
           fi
 
-          # Unicos
+          ## Unicos
           printf "%s\n" "${MATCHING_LAMBDAS[@]}" | sort -u > lambdas_to_update.txt
           echo "Lambdas to update:"
           cat lambdas_to_update.txt
