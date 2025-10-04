@@ -164,7 +164,7 @@ jobs:
               exit 1
             fi
             
-            ### Subir a S3
+            ## Subir a S3
             echo "Subiendo $SCRIPT_PATH a $S3_PATH"
             aws s3 cp "$SCRIPT_PATH" "$S3_PATH" || exit 1
             echo "Carga exitosa para $JOB_NAME"
